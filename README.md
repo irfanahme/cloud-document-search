@@ -365,7 +365,6 @@ document-search-app/
 │   └── services/           # Business logic services
 ├── tests/                  # Test suite
 ├── docs/                   # Documentation
-├── scripts/                # Utility scripts
 ├── requirements.txt        # Python dependencies
 └── README.md              # This file
 ```
