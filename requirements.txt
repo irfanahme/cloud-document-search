@@ -1,0 +1,42 @@
+# Core dependencies
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+pydantic-settings
+
+# AWS SDK
+boto3
+botocore
+
+# Search and indexing
+elasticsearch
+
+# Document processing
+PyPDF2
+pdfplumber
+python-docx
+openpyxl
+pandas
+
+# OCR for images
+pytesseract
+Pillow
+
+# Text processing
+chardet
+
+# API and CLI
+requests
+click
+rich
+tabulate
+
+# Development and testing
+pytest
+pytest-cov
+black
+flake8
+
+# Logging and monitoring
+structlog

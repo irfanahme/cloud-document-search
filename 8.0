@@ -1,0 +1,8 @@
+Looking in indexes: https://pypi.org/simple, https://pypi.ngc.nvidia.com
+Requirement already satisfied: elasticsearch in e:\qatarjob\test\lib\site-packages (9.0.2)
+Requirement already satisfied: elastic-transport<9,>=8.15.1 in e:\qatarjob\test\lib\site-packages (from elasticsearch) (8.17.1)
+Requirement already satisfied: python-dateutil in e:\qatarjob\test\lib\site-packages (from elasticsearch) (2.9.0.post0)
+Requirement already satisfied: typing-extensions in e:\qatarjob\test\lib\site-packages (from elasticsearch) (4.13.2)
+Requirement already satisfied: urllib3<3,>=1.26.2 in e:\qatarjob\test\lib\site-packages (from elastic-transport<9,>=8.15.1->elasticsearch) (1.26.20)
+Requirement already satisfied: certifi in e:\qatarjob\test\lib\site-packages (from elastic-transport<9,>=8.15.1->elasticsearch) (2025.6.15)
+Requirement already satisfied: six>=1.5 in e:\qatarjob\test\lib\site-packages (from python-dateutil->elasticsearch) (1.12.0)
