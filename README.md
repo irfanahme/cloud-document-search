@@ -40,7 +40,6 @@ A comprehensive cloud document search service that enables full-text search acro
 - **FastAPI REST API**: High-performance async API with automatic OpenAPI documentation
 - **Interactive Documentation**: Built-in Swagger UI and ReDoc for API exploration
 - **CLI Interface**: Rich command-line interface for easy interaction
-- **Docker Support**: Containerized deployment with Docker Compose
 - **Parallel Processing**: Multi-threaded document processing
 - **Real-time Sync**: Synchronize index with S3 bucket changes
 
@@ -49,7 +48,6 @@ A comprehensive cloud document search service that enables full-text search acro
 ### Prerequisites
 
 - Python 3.9+
-- Docker and Docker Compose (for containerized deployment)
 - AWS account with S3 access
 - Elasticsearch 8.x (provided via Docker Compose)
 
