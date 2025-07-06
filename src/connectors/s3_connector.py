@@ -127,6 +127,57 @@ class S3Connector:
             logger.error(f"Error downloading document {document_key}: {e}")
             raise
     
+    def get_document_stream(self, document_key: str):
+        """Get document content as a stream for efficient processing."""
+        try:
+            response = self.s3_client.get_object(
+                Bucket=self.bucket_name,
+                Key=document_key
+            )
+            return response['Body']
+            
+        except ClientError as e:
+            logger.error(f"Error getting document stream {document_key}: {e}")
+            raise
+    
+    def get_document_content_efficient(self, document_key: str, max_memory_size: int = 10 * 1024 * 1024) -> bytes:
+        """Download document content with memory optimization.
+        
+        Args:
+            document_key: S3 key of the document
+            max_memory_size: Maximum size to load into memory (default: 10MB)
+            
+        Returns:
+            Document content as bytes
+            
+        Raises:
+            ValueError: If file is too large for memory processing
+        """
+        try:
+            # Get metadata first to check file size
+            metadata = self.get_document_metadata(document_key)
+            file_size = metadata['size']
+            
+            # If file is too large, recommend streaming
+            if file_size > max_memory_size:
+                raise ValueError(
+                    f"File {document_key} is too large ({file_size} bytes) for memory processing. "
+                    f"Use get_document_stream() instead."
+                )
+            
+            # File is small enough, load into memory
+            response = self.s3_client.get_object(
+                Bucket=self.bucket_name,
+                Key=document_key
+            )
+            content = response['Body'].read()
+            logger.debug(f"Downloaded document: {document_key} ({len(content)} bytes)")
+            return content
+            
+        except ClientError as e:
+            logger.error(f"Error downloading document {document_key}: {e}")
+            raise
+    
     def get_document_metadata(self, document_key: str) -> Dict:
         """Get document metadata from S3."""
         try:

@@ -1,38 +1,35 @@
-"""Main document processing service."""
+"""Main document service orchestrating all document operations."""
 
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
 from connectors.s3_connector import S3Connector, S3Document
 from extractors.text_extractor import TextExtractorService
 from indexer.elasticsearch_indexer import ElasticsearchIndexer, DocumentIndex
 from config import settings
+from exceptions import DocumentSearchException, DocumentNotFoundError
+from .document_processor import DocumentProcessor, DocumentProcessingResult
+from .batch_processor import BatchProcessor
 
 logger = logging.getLogger(__name__)
 
 
-class DocumentProcessingResult:
-    """Result of document processing operation."""
-    
-    def __init__(self, s3_key: str, success: bool, message: str = ""):
-        self.s3_key = s3_key
-        self.success = success
-        self.message = message
-        self.processed_at = datetime.utcnow()
-
-
 class DocumentService:
-    """Main service for document processing and search operations."""
+    """Main service orchestrating document operations."""
     
     def __init__(self):
         """Initialize the document service with all required components."""
+        # Initialize core components
         self.s3_connector = S3Connector()
         self.text_extractor = TextExtractorService()
         self.indexer = ElasticsearchIndexer()
-        self._processing_lock = threading.Lock()
+        
+        # Initialize specialized processors
+        self.document_processor = DocumentProcessor(
+            self.s3_connector, self.text_extractor, self.indexer
+        )
+        self.batch_processor = BatchProcessor(self.document_processor)
         
         logger.info("DocumentService initialized successfully")
     
@@ -56,185 +53,28 @@ class DocumentService:
             
             logger.info(f"Found {len(documents)} documents to process")
             
-            # Process documents in parallel
-            results = self._process_documents_parallel(documents, max_workers)
-            
-            # Calculate statistics
-            processed = sum(1 for r in results if r.success)
-            failed = len(results) - processed
+            # Process documents using batch processor
+            results = self.batch_processor.process_documents_batch(documents, max_workers)
             
             # Refresh the index to make documents searchable
             self.indexer.refresh_index()
             
-            summary = {
-                'total_documents': len(documents),
-                'processed': processed,
-                'failed': failed,
-                'skipped': 0,
-                'results': [
-                    {
-                        's3_key': r.s3_key,
-                        'success': r.success,
-                        'message': r.message,
-                        'processed_at': r.processed_at.isoformat()
-                    } for r in results
-                ]
-            }
-            
-            logger.info(f"Document processing completed: {processed} processed, {failed} failed")
-            return summary
+            logger.info(f"Document processing completed: {results['processed']} processed, {results['failed']} failed")
+            return results
             
         except Exception as e:
             logger.error(f"Error in process_all_documents: {e}")
-            raise
+            raise DocumentSearchException(f"Failed to process documents: {str(e)}")
     
     def process_single_document(self, s3_key: str) -> DocumentProcessingResult:
         """Process a single document by S3 key."""
         try:
-            # Check if document exists in S3
-            if not self.s3_connector.document_exists(s3_key):
-                return DocumentProcessingResult(
-                    s3_key, False, f"Document not found in S3: {s3_key}"
-                )
-            
-            # Get document metadata
-            metadata = self.s3_connector.get_document_metadata(s3_key)
-            
-            # Check file size
-            if metadata['size'] > settings.max_file_size_bytes:
-                return DocumentProcessingResult(
-                    s3_key, False, 
-                    f"File too large: {metadata['size']} bytes (max: {settings.max_file_size_bytes})"
-                )
-            
-            # Download document content
-            content = self.s3_connector.get_document_content(s3_key)
-            
-            # Extract text
-            file_name = s3_key.split('/')[-1]
-            extracted_text = self.text_extractor.extract_text(content, file_name)
-            
-            if not extracted_text.strip():
-                return DocumentProcessingResult(
-                    s3_key, False, "No text could be extracted from document"
-                )
-            
-            # Generate presigned URL
-            try:
-                url = self.s3_connector.get_document_url(s3_key)
-            except Exception as e:
-                logger.warning(f"Could not generate URL for {s3_key}: {e}")
-                url = ""
-            
-            # Create document index
-            doc_index = DocumentIndex(
-                s3_key=s3_key,
-                file_name=file_name,
-                content=extracted_text,
-                file_extension=metadata.get('content_type', '').split('/')[-1],
-                size=metadata['size'],
-                last_modified=metadata['last_modified'],
-                etag=metadata['etag'],
-                url=url
-            )
-            
-            # Index document
-            if self.indexer.index_document(doc_index):
-                return DocumentProcessingResult(
-                    s3_key, True, f"Successfully processed and indexed document"
-                )
-            else:
-                return DocumentProcessingResult(
-                    s3_key, False, "Failed to index document in Elasticsearch"
-                )
-                
+            return self.document_processor.process_document_by_key(s3_key)
         except Exception as e:
             logger.error(f"Error processing document {s3_key}: {e}")
-            return DocumentProcessingResult(s3_key, False, str(e))
+            raise DocumentSearchException(f"Failed to process document {s3_key}: {str(e)}")
     
-    def _process_documents_parallel(self, documents: List[S3Document], 
-                                  max_workers: int) -> List[DocumentProcessingResult]:
-        """Process documents in parallel using ThreadPoolExecutor."""
-        results = []
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_doc = {
-                executor.submit(self._process_s3_document, doc): doc 
-                for doc in documents
-            }
-            
-            # Collect results as they complete
-            for future in as_completed(future_to_doc):
-                doc = future_to_doc[future]
-                try:
-                    result = future.result()
-                    results.append(result)
-                    
-                    if result.success:
-                        logger.debug(f"Successfully processed: {doc.key}")
-                    else:
-                        logger.warning(f"Failed to process {doc.key}: {result.message}")
-                        
-                except Exception as e:
-                    logger.error(f"Exception processing {doc.key}: {e}")
-                    results.append(DocumentProcessingResult(doc.key, False, str(e)))
-        
-        return results
-    
-    def _process_s3_document(self, s3_document: S3Document) -> DocumentProcessingResult:
-        """Process a single S3Document object."""
-        try:
-            # Check if already indexed with same etag
-            existing_doc = self.indexer.get_document_by_key(s3_document.key)
-            if existing_doc and existing_doc.get('etag') == s3_document.etag:
-                return DocumentProcessingResult(
-                    s3_document.key, True, "Document already indexed (same version)"
-                )
-            
-            # Check file size
-            if s3_document.size > settings.max_file_size_bytes:
-                return DocumentProcessingResult(
-                    s3_document.key, False, 
-                    f"File too large: {s3_document.size} bytes"
-                )
-            
-            # Download content
-            content = self.s3_connector.get_document_content(s3_document.key)
-            
-            # Extract text
-            extracted_text = self.text_extractor.extract_text(content, s3_document.file_name)
-            
-            if not extracted_text.strip():
-                return DocumentProcessingResult(
-                    s3_document.key, False, "No text extracted"
-                )
-            
-            # Generate URL
-            try:
-                url = self.s3_connector.get_document_url(s3_document.key)
-            except Exception:
-                url = ""
-            
-            # Create and index document
-            doc_index = DocumentIndex(
-                s3_key=s3_document.key,
-                file_name=s3_document.file_name,
-                content=extracted_text,
-                file_extension=s3_document.file_extension,
-                size=s3_document.size,
-                last_modified=s3_document.last_modified.isoformat(),
-                etag=s3_document.etag,
-                url=url
-            )
-            
-            if self.indexer.index_document(doc_index):
-                return DocumentProcessingResult(s3_document.key, True, "Processed successfully")
-            else:
-                return DocumentProcessingResult(s3_document.key, False, "Indexing failed")
-                
-        except Exception as e:
-            return DocumentProcessingResult(s3_document.key, False, str(e))
+
     
     def search_documents(self, query: str, size: int = 10, from_: int = 0) -> Dict[str, Any]:
         """Search documents using the query."""

@@ -40,6 +40,7 @@ A comprehensive cloud document search service that enables full-text search acro
 - **FastAPI REST API**: High-performance async API with automatic OpenAPI documentation
 - **Interactive Documentation**: Built-in Swagger UI and ReDoc for API exploration
 - **CLI Interface**: Rich command-line interface for easy interaction
+- **Docker Support**: Containerized deployment with Docker Compose
 - **Parallel Processing**: Multi-threaded document processing
 - **Real-time Sync**: Synchronize index with S3 bucket changes
 
@@ -48,6 +49,7 @@ A comprehensive cloud document search service that enables full-text search acro
 ### Prerequisites
 
 - Python 3.9+
+- Docker and Docker Compose (for containerized deployment)
 - AWS account with S3 access
 - Elasticsearch 8.x (provided via Docker Compose)
 
@@ -95,6 +97,17 @@ LOG_LEVEL=INFO
 
 ### 3. Start Services
 
+#### Option A: Docker Compose (Recommended)
+
+```bash
+# Start Elasticsearch and the API
+docker-compose up -d
+
+# With Kibana for visualization
+docker-compose --profile with-kibana up -d
+```
+
+#### Option B: Local Development
 
 ```bash
 # Start Elasticsearch (separate terminal)
@@ -303,6 +316,28 @@ python -m pytest tests/ -v
 python -m pytest tests/ --cov=src --cov-report=html
 ```
 
+## 🐳 Docker Deployment
+
+### Build Image
+```bash
+docker build -t document-search-app .
+```
+
+### Docker Compose
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f document-search-api
+
+# Stop services
+docker-compose down
+
+# With Kibana for Elasticsearch visualization
+docker-compose --profile with-kibana up -d
+```
+
 ### Environment File for Docker
 Create `.env` file for Docker Compose:
 
@@ -313,6 +348,16 @@ AWS_REGION=us-east-1
 S3_BUCKET_NAME=your-bucket
 ```
 
+## 📊 Monitoring
+
+### Application Logs
+```bash
+# View API logs
+docker-compose logs -f document-search-api
+
+# View Elasticsearch logs
+docker-compose logs -f elasticsearch
+```
 
 ### Health Checks
 - API Health: `http://localhost:5000/health`
@@ -365,7 +410,10 @@ document-search-app/
 │   └── services/           # Business logic services
 ├── tests/                  # Test suite
 ├── docs/                   # Documentation
+├── scripts/                # Utility scripts
 ├── requirements.txt        # Python dependencies
+├── Dockerfile             # Container definition
+├── docker-compose.yml     # Multi-service deployment
 └── README.md              # This file
 ```
 
@@ -430,3 +478,25 @@ tesseract --version
 2. **Processing**: Adjust `max_workers` based on system resources
 3. **Search**: Use pagination for large result sets
 4. **Indexing**: Batch process documents during off-peak hours
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🤝 Support
+
+For issues and questions:
+1. Check the troubleshooting section
+2. Review the API documentation
+3. Check existing issues in the repository
+4. Create a new issue with detailed information
+
+## 🔮 Future Enhancements
+
+- Support for more file formats (PowerPoint, OpenDocument)
+- Advanced search features (filters, facets)
+- Real-time document change detection
+- Multi-language OCR support
+- Search result caching
+- Analytics and usage metrics
+- Web UI for search interface 

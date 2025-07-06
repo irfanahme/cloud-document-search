@@ -32,12 +32,17 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
     
     # Document Processing Configuration
-    max_file_size_mb: int = Field(default=100, env="MAX_FILE_SIZE_MB")
+    max_file_size_mb: int = Field(default=2, env="MAX_FILE_SIZE_MB")
     supported_extensions: str = Field(
         default=".txt,.csv,.pdf,.png,.jpg,.jpeg,.docx,.xlsx",
         env="SUPPORTED_EXTENSIONS"
     )
     tesseract_path: str = Field(default="/usr/bin/tesseract", env="TESSERACT_PATH")
+    
+    # Performance and Scaling Configuration
+    search_timeout_seconds: int = Field(default=1, env="SEARCH_TIMEOUT_SECONDS")
+    max_concurrent_users: int = Field(default=100, env="MAX_CONCURRENT_USERS")
+    rate_limit_requests_per_minute: int = Field(default=60, env="RATE_LIMIT_REQUESTS_PER_MINUTE")
     
     @property
     def supported_extensions_list(self) -> List[str]:

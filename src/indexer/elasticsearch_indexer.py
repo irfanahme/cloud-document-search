@@ -59,7 +59,7 @@ class ElasticsearchIndexer:
         
         # Add authentication if credentials are provided
         if settings.elasticsearch_user and settings.elasticsearch_password:
-            es_config['basic_auth'] = (
+            es_config['http_auth'] = (
                 settings.elasticsearch_user,
                 settings.elasticsearch_password
             )
@@ -229,7 +229,8 @@ class ElasticsearchIndexer:
         try:
             response = self.es.search(
                 index=self.index_name,
-                body=search_body
+                body=search_body,
+                timeout=f"{settings.search_timeout_seconds}s"
             )
             
             hits = []

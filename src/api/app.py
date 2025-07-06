@@ -1,7 +1,7 @@
 """FastAPI REST API for document search service."""
 
 import logging
-from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -9,6 +9,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import os
 import sys
+import time
+from collections import defaultdict
+import threading
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -40,6 +43,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting storage
+rate_limit_storage = defaultdict(list)
+rate_limit_lock = threading.Lock()
+
+# Rate limiting middleware
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Simple rate limiting middleware."""
+    client_ip = request.client.host
+    current_time = time.time()
+    
+    # Skip rate limiting for health checks
+    if request.url.path in ["/", "/health", "/docs", "/redoc", "/openapi.json"]:
+        return await call_next(request)
+    
+    with rate_limit_lock:
+        # Clean old requests (older than 1 minute)
+        minute_ago = current_time - 60
+        rate_limit_storage[client_ip] = [
+            timestamp for timestamp in rate_limit_storage[client_ip] 
+            if timestamp > minute_ago
+        ]
+        
+        # Check if rate limit exceeded
+        if len(rate_limit_storage[client_ip]) >= settings.rate_limit_requests_per_minute:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please try again later."
+            )
+        
+        # Add current request
+        rate_limit_storage[client_ip].append(current_time)
+    
+    return await call_next(request)
 
 # Initialize document service
 try:
