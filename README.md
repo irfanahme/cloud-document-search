@@ -478,25 +478,3 @@ tesseract --version
 2. **Processing**: Adjust `max_workers` based on system resources
 3. **Search**: Use pagination for large result sets
 4. **Indexing**: Batch process documents during off-peak hours
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤝 Support
-
-For issues and questions:
-1. Check the troubleshooting section
-2. Review the API documentation
-3. Check existing issues in the repository
-4. Create a new issue with detailed information
-
-## 🔮 Future Enhancements
-
-- Support for more file formats (PowerPoint, OpenDocument)
-- Advanced search features (filters, facets)
-- Real-time document change detection
-- Multi-language OCR support
-- Search result caching
-- Analytics and usage metrics
-- Web UI for search interface 
